@@ -1,0 +1,107 @@
+% FUNÇÃO DE INICIALIZAÇÃO PARA SIMULAÇÃO DO FOGUETE
+clear
+clc
+close all
+
+%% PARÂMETROS PROPULSIVOS
+Isp = zeros(1, 3);mp = zeros(1, 3);ti = zeros(1, 3);tq = zeros(1, 3);...
+ts = zeros(1, 3);ms = zeros(1, 3);
+
+% Impulso específico para cada estágio
+Isp(1) = 251;   % s - Impulso específico do primeiro estágio (5xS50)
+Isp(2) = 271;   % s - Impulso específico do segundo estágio (1xS50)
+Isp(3) = 315;   % s - Impulso específico do terceiro estágio (RD843)
+
+% Massa de propelente para cada estágio
+mp(1) = 5.5262e+04;    % kg - Massa de propelente do primeiro estágio (5xS50)
+mp(2) = 11058;         % kg - Massa de propelente do segundo estágio (1xS50)
+mp(3) = 243.6;         % kg - Massa de propelente do terceiro estágio (RD843)
+
+% Tempos de queima
+Tq1 = 64.59;   % s - Tempo de queima do primeiro estágio
+Tq2 = 64.59;   % s - Tempo de queima do segundo estágio
+Tq3 = 301;     % s - Tempo de queima do terceiro estágio
+
+% Tempos de ignição e separação dos estágios
+ti(1) = 0;     % s - Tempo da ignição do primeiro estágio
+tq(1) = ti(1) + Tq1;  % s - Tempo do fim da queima do primeiro estágio
+ts(1) = tq(1) + 1;    % s - Tempo da separação do primeiro estágio
+
+ti(2) = ts(1) + 1;    % s - Tempo da ignição do segundo estágio
+tq(2) = ti(2) + Tq2;  % s - Tempo do fim da queima do segundo estágio
+ts(2) = tq(2) + 1;    % s - Tempo da separação do segundo estágio
+
+Tei3 = 480;    % s - Tempo de espera para ignição do terceiro estágio
+ti(3) = ts(2) + Tei3;  % s - Tempo da ignição do terceiro estágio
+tq(3) = ti(3) + Tq3;   % s - Tempo do fim da queima do terceiro estágio
+ts(3) = tq(3) + 1;     % s - Tempo da separação do terceiro estágio
+
+% Parametros de massa estrutural e de carga útil
+ms(1) = 7750;  % kg - Massa estrutural do primeiro estágio
+ms(2) = 1367;  % kg - Massa estrutural do segundo estágio
+ms(3) = 64.7544;  % kg - Massa estrutural do terceiro estágio
+
+mL = 600;  % kg - Massa da carga útil
+m0 = sum(mp) + sum(ms) + mL;  % kg - Massa inicial do foguete
+
+g = 9.80665;  % m/s² - Aceleração da gravidade padrão ao nível do mar
+
+% Vetor de parâmetros para o modelo propulsivo
+parametros_prop = [ti, tq, ts, mp, ms, Isp, m0, g];
+
+%% PARÂMETROS AERODINÂMICOS E AMBIENTAIS
+fc = 0.62;  % Fator de correção do arrasto a partir da referência do VLM
+
+% Áreas de referência das seções transversais
+S1 = 4.6 * 5 / 3;  % m² - Área aproximada da seção transversal do primeiro estágio
+S2 = 1.5;          % m² - Área aproximada da seção transversal do segundo estágio
+S3 = 1.5;          % m² - Área aproximada da seção transversal do terceiro estágio
+SL = 1.5;          % m² - Área aproximada da seção transversal da carga útil
+
+% Correções para a área molhada, levando em consideração o comprimento
+lt = 7.33 + 7.1 + 6.28;  % m - Comprimento total
+l2 = 7.1 + 6.28;         % m - Comprimento sem o primeiro estágio
+l3 = 6.28;               % m - Comprimento sem o segundo estágio
+l4 = 1;                  % m - Comprimento da carga útil
+l_trilho = lt;
+
+f2 = (l2 / lt) * 0.5 + 0.5;  % Fator de correção do segundo estágio
+f3 = (l3 / lt) * 0.5 + 0.5;  % Fator de correção do terceiro estágio
+f4 = (l4 / lt) * 0.5 + 0.5;  % Fator de correção da carga útil
+
+% Vetor de áreas de referência para cálculo do arrasto
+Sr = [S1, S2 * f2, S3 * f3, SL * f4];  % Áreas corrigidas
+
+% Vetor de parâmetros para o modelo aerodinâmico
+parametros_aero = [ts, Sr, fc];
+
+lc = 1.4;  % Comprimento característico (diâmetro dos estágios 2 e superiores)
+dT = 10;   % K - Delta T em relação à atmosfera padrão (15ºC no nível do mar)
+
+% Parametros da Terra - modelo axis simétrico (WGS-84)
+Re = 6378.1370e3;    % m - Raio equatorial da Terra
+we = 7.2921150e-5;   % rad/s - Velocidade de rotação da Terra com respeito ao espaço inercial
+mut = 3.986004418e14; % m³/s² - Constante gravitacional da Terra
+
+% Constantes de Jeffery
+J2 = 0.00108263;     % Constante de Jeffery (J2)
+J3 = -0.00000254;    % Constante de Jeffery (J3)
+J4 = -0.00000161;    % Constante de Jeffery (J4)
+tg = 0;              % s - Tempo em que o meridiano de referência tem longitude celeste nula
+
+% Vetro de parâmetros para o modelo gravitacional
+parametros_grav = [Re,mut,J2,J3,J4];
+
+%% CONDIÇÕES INICIAIS
+h0 = 0; % Altitude no local de lançamento
+V0 = 7.2921150e-5; % Magnitude da velocidade inicial - [m/s]
+A0 = 85.2759789202593; % Ângulo de azimute inicial - [º]
+phi0 = 75.5; % Ângulo de elevalçao da velocidade incicial - [º]
+r0 = Re + h0; % Distâncial radial incial - [m]
+delta0 = -2.3267844; % Latitude do local de lançamento - [º]
+lon0 = -44.4111042; % Longitude do local de lançamento - [º]
+
+A0 = deg2rad(A0);
+phi0 = deg2rad(phi0);
+delta0 = deg2rad(delta0);
+lon0 = deg2rad(lon0);
